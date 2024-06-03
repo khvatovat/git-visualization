@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>GitGraph Visualization</title>
+  <script src="https://unpkg.com/@gitgraph/js"></script>
+  <style>
+    #gitGraphContainer {
+      width: 100%;
+      height: 100vh;
+    }
+  </style>
+</head>
+<body>
+  <div id="gitGraphContainer"></div>
+  <script>
+    const { createGitgraph } = window['gitgraph-js'];
+
+    // Initialize the graph.
+    const gitgraphContainer = document.getElementById("gitGraphContainer");
+    const gitgraph = createGitgraph(gitgraphContainer);
+
+    // Replace with the path to your git-log.json file
+    const gitLogUrl = 'git-log.json';
+
+    // Function to convert commit parents to GitGraph compatible format
+    function convertParents(parents) {
+      return parents.map(parent => parent.trim()).filter(Boolean);
+    }
+
+    // Load data from git-log.json
+    fetch(gitLogUrl)
+      .then(response => response.json())
+      .then(data => {
+        const branches = new Map();
+        data.forEach(commit => {
+          const branchName = commit.parents.length ? commit.parents[0] : commit.commit;
+          if (!branches.has(branchName)) {
+            branches.set(branchName, gitgraph.branch(branchName));
+          }
+          const branch = branches.get(branchName);
+          branch.commit({
+            subject: commit.message,
+            hash: commit.commit,
+            author: commit.author,
+            date: new Date(commit.date),
+          });
+
+          commit.parents.slice(1).forEach(parent => {
+            if (!branches.has(parent)) {
+              branches.set(parent, gitgraph.branch(parent));
+            }
+            const parentBranch = branches.get(parent);
+            parentBranch.merge(branch, {
+              subject: commit.message,
+              hash: commit.commit,
+              author: commit.author,
+              date: new Date(commit.date),
+            });
+          });
+        });
+      })
+      .catch(error => console.error('Error loading git log:', error));
+  </script>
+</body>
+</html>
+
